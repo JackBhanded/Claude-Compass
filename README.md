@@ -14,9 +14,25 @@ first message.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-D97757.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-D97757.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-120%2B%20passing-3F8F77.svg)](#trust--control)
+[![Tests](https://img.shields.io/badge/tests-140%2B%20passing-3F8F77.svg)](#trust--control)
 
 </div>
+
+---
+
+## What's inside
+
+- **~125 calibration questions**, researched against Anthropic's steering docs +
+  working-style psychology — each with **best-first, click-to-pick answers**.
+- **~25 automatic guardrails** — your answer becomes a rule Claude follows
+  ("always confirm before deleting," "never commit secrets").
+- **You're in control** — approve / edit / forget any note; a **pause kill-switch**
+  that pulls Compass out of your sessions on the spot; nothing inferred goes live
+  until you approve it.
+- **A light/dark dashboard** showing the *verbatim* profile every session reads,
+  a **double-click app**, and a **system-tray** companion.
+- **SessionStart auto-sync**, built on the same audited safe-write engine as
+  Lifejacket. 140+ tests.
 
 ---
 
