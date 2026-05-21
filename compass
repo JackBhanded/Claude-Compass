@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Run Claude Compass from this folder on macOS/Linux without PATH fuss.
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PYTHONPATH="$DIR/src:$PYTHONPATH"
+exec python3 -m claude_compass "$@"

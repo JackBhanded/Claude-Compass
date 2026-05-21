@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+*.spec
+.pytest_cache/
+.coverage
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local-only helpers (not for the public repo)
+push-to-github.ps1
+_setup-repo.ps1
+LAUNCH.md
+NOTES.md
+
+# Anything generated into a local store accidentally placed here
+dashboard.html
+profile.json
+profile.md
+questions.json
+manifest.json
+state.json
+activity.log
+backups/
