@@ -388,11 +388,18 @@ def main(start_in_tray: bool = False) -> int:
         a_open = QAction("Open Compass", menu); a_open.triggered.connect(_show)
         a_sync = QAction("Sync now", menu); a_sync.triggered.connect(win._sync)
         a_dash = QAction("Open dashboard", menu); a_dash.triggered.connect(win._open_dashboard)
-        a_pause = QAction("Pause / Resume", menu); a_pause.triggered.connect(win._toggle_pause)
+        a_pause = QAction("Pause", menu); a_pause.triggered.connect(win._toggle_pause)
         a_quit = QAction("Quit", menu); a_quit.triggered.connect(app.quit)
         for a in (a_open, a_sync, a_dash, a_pause):
             menu.addAction(a)
         menu.addSeparator(); menu.addAction(a_quit)
+
+        # Show "Resume" when paused, "Pause" when running — refreshed each open.
+        def _refresh_pause_label():
+            a_pause.setText("Resume" if store.is_paused() else "Pause")
+        menu.aboutToShow.connect(_refresh_pause_label)
+        _refresh_pause_label()
+
         tray.setContextMenu(menu)
         tray.activated.connect(
             lambda reason: _show() if reason == QSystemTrayIcon.DoubleClick else None)
