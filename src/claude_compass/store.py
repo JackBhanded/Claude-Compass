@@ -47,11 +47,16 @@ PROFILE_VERSION = 1
 # profile, so it reads naturally and the hash stays stable.
 FACET_CATEGORIES = [
     ("communication", "Communication style"),
-    ("feedback", "How they want feedback"),
-    ("expertise", "Background & expertise"),
+    ("feedback", "Feedback & honesty"),
+    ("autonomy", "Autonomy & guardrails"),
     ("workflow", "How they like to work"),
-    ("formatting", "Format & output preferences"),
-    ("domains", "Domains & tools they use"),
+    ("formatting", "Format & output"),
+    ("expertise", "Background & expertise"),
+    ("learning", "How they learn best"),
+    ("codestyle", "Code & conventions"),
+    ("safety", "Safety & boundaries"),
+    ("domains", "Domains & tools"),
+    ("accessibility", "Accessibility & wellbeing"),
     ("peeves", "Pet peeves / things to avoid"),
     ("other", "Other"),
 ]
@@ -220,6 +225,28 @@ class Store:
 
     def clear(self) -> None:
         self.save_facets([])
+
+    def edit_facet(self, index: int, new_text: str) -> Optional[Facet]:
+        """Edit a note's text by its 1-based index in :meth:`ordered_facets`.
+        Editing is endorsing — the note becomes yours (source='you') and approved,
+        so a fixed-up inferred note goes live. Returns the updated Facet or None."""
+        new_text = (new_text or "").strip()
+        if not new_text:
+            return None
+        ordered = self.ordered_facets()
+        if not (1 <= index <= len(ordered)):
+            return None
+        target = ordered[index - 1]
+        facets = self.load()
+        for f in facets:
+            if f.category == target.category and f.text == target.text:
+                f.text = new_text
+                f.source = "you"
+                f.approved = True
+                f.updated = _now_date()
+                self.save_facets(facets)
+                return f
+        return None
 
     def approve_facet(self, index: int) -> bool:
         """Approve a pending facet by its 1-based index in :meth:`ordered_facets`

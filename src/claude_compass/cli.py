@@ -77,8 +77,16 @@ def cmd_ask(args) -> int:
     _out(f"{COMPASS} A quick one to help Claude work the way you like:")
     _out("")
     _out(f"    {q.text}")
-    _out("")
-    _out(f"    Answer:  python -m claude_compass answer {q.id} \"your answer\"")
+    if q.options:
+        _out("")
+        for i, opt in enumerate(q.options, 1):
+            _out(f"      {i}) {opt}")
+        how = "numbers, e.g. 1,3" if q.multi else "a number"
+        _out("")
+        _out(f"    Answer:  python -m claude_compass answer {q.id} <{how} — or type your own>")
+    else:
+        _out("")
+        _out(f"    Answer:  python -m claude_compass answer {q.id} \"your answer\"")
     _out(f"    Skip:    python -m claude_compass skip {q.id}")
     return 0
 
@@ -87,7 +95,8 @@ def cmd_answer(args) -> int:
     s = _store()
     s.init()
     qb = QuestionBank(s)
-    facet = qb.answer(args.id, args.text)
+    final = qb.resolve_answer(args.id, args.text)   # turns a number into the option text
+    facet = qb.answer(args.id, final) if final else None
     if not facet:
         _out(f"{COMPASS} Hmm, I couldn't record that — check the question id "
              "(see: python -m claude_compass ask) and that your answer isn't empty.")
@@ -148,6 +157,19 @@ def cmd_forget(args) -> int:
     reports = sync_all(s)
     if reports:
         _out("    Re-synced — it's gone from your Claude memory too, not just here.")
+    return 0
+
+
+def cmd_edit(args) -> int:
+    s = _store()
+    f = s.edit_facet(args.index, args.text)
+    if not f:
+        _out(f"{COMPASS} No note at [{args.index}] (see: python -m claude_compass "
+             "show), or the new text was empty.")
+        return 1
+    _out(f"{COMPASS} Updated note [{args.index}]: \"{f.text}\"")
+    sync_all(s)
+    _out("    Re-synced — your sessions now see the edit.")
     return 0
 
 
@@ -325,6 +347,16 @@ def cmd_dashboard(args) -> int:
     return 0
 
 
+def cmd_tray(args) -> int:
+    try:
+        from .app import main as app_main
+    except Exception:
+        _out(f"{COMPASS} The tray needs the desktop app. Install PySide6: "
+             "pip install --user PySide6")
+        return 1
+    return app_main(start_in_tray=True)
+
+
 def cmd_doctor(args) -> int:
     s = _store()
     _out(f"{COMPASS} Compass check-up")
@@ -375,6 +407,11 @@ def build_parser() -> argparse.ArgumentParser:
     fg.add_argument("index", type=int)
     fg.set_defaults(func=cmd_forget)
 
+    ed = sub.add_parser("edit", help="edit a note's text (re-syncs)")
+    ed.add_argument("index", type=int)
+    ed.add_argument("text")
+    ed.set_defaults(func=cmd_edit)
+
     ap = sub.add_parser("approve", help="approve an inferred (pending) note")
     ap.add_argument("index", type=int, nargs="?")
     ap.add_argument("--all", action="store_true")
@@ -398,6 +435,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="write the HTML file but don't open a browser")
     d.set_defaults(func=cmd_dashboard)
 
+    sub.add_parser("tray", help="run Compass quietly in your system tray").set_defaults(func=cmd_tray)
     sub.add_parser("install-hook", help="make sync automatic").set_defaults(func=cmd_install_hook)
     sub.add_parser("uninstall-hook", help="remove the automatic hook").set_defaults(func=cmd_uninstall_hook)
     sub.add_parser("hook", help=argparse.SUPPRESS).set_defaults(func=cmd_hook)

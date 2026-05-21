@@ -36,6 +36,15 @@ It learns who you are two gentle ways:
 - **From your history** *(v0.2, opt-in)* — it will read your *local* Claude
   transcripts and draft profile notes for you to review.
 
+**The questions are researched, not guessed.** The ~125 calibration questions are
+grounded in Anthropic's own prompt-engineering and steering guidance *and* in
+validated working-style psychology (Big Five, communication styles, learning &
+cognition, accessibility). Each offers best-first, click-to-pick answers, and ~25
+set automatic **guardrails** — turning your answer into a hard rule Claude follows
+("always confirm before deleting," "never commit secrets," "never use these
+libraries"). Small, high-signal, and chosen because each one *measurably* changes
+how Claude works for you.
+
 ## Better together with Claude Lifejacket
 
 Compass has a sibling, **[Claude Lifejacket](https://github.com/JackBhanded/claude-lifejacket)**.
@@ -109,7 +118,9 @@ compass dashboard            # see everything it knows, in your browser
 | `compass answer <id> "..."` | Answer it (becomes a profile note) |
 | `compass show` | Your full profile + where each note came from |
 | `compass forget <n>` | Remove a note (and re-sync so it's gone everywhere) |
+| `compass edit <n> "..."` | Edit a note in place (re-syncs) |
 | `compass approve <n>` / `--all` | Approve an inferred (pending) note |
+| `compass tray` | Run quietly in your system tray |
 | `compass sync [--dry-run]` | Push your profile into Claude's memory |
 | `compass pause` / `resume` | Kill-switch: pull / restore Compass's influence |
 | `compass dashboard` | Open the visual status page |

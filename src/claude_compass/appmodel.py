@@ -19,7 +19,7 @@ from .sync import profile_fingerprint, sync_all
 __all__ = [
     "FacetView", "SurfaceView", "Snapshot", "build_snapshot",
     "hook_is_on", "answer_question", "approve", "approve_all",
-    "forget", "set_paused", "do_sync",
+    "forget", "edit", "set_paused", "do_sync",
 ]
 
 _LABELS = dict(FACET_CATEGORIES)
@@ -49,6 +49,8 @@ class Snapshot:
     paused: bool
     next_question_text: Optional[str]
     next_question_id: Optional[str]
+    next_question_options: List[str]
+    next_question_multi: bool
     recent: List[str]
 
 
@@ -100,6 +102,8 @@ def build_snapshot(store: Store, *, claude_home=None) -> Snapshot:
         paused=paused,
         next_question_text=q.text if q else None,
         next_question_id=q.id if q else None,
+        next_question_options=list(q.options) if q else [],
+        next_question_multi=bool(q.multi) if q else False,
         recent=store.read_recent_events(8),
     )
 
@@ -119,6 +123,14 @@ def approve_all(store: Store) -> int:
 def forget(store: Store, index: int, *, claude_home=None) -> bool:
     """Remove a facet AND re-sync, so it's gone everywhere (no ghost memories)."""
     if not store.remove_facet(index):
+        return False
+    sync_all(store, claude_home=claude_home)
+    return True
+
+
+def edit(store: Store, index: int, new_text: str, *, claude_home=None) -> bool:
+    """Edit a facet's text AND re-sync, so the change reaches every session."""
+    if store.edit_facet(index, new_text) is None:
         return False
     sync_all(store, claude_home=claude_home)
     return True

@@ -245,12 +245,31 @@ def render_dashboard_html(store: Store) -> str:
   .empty code {{ display: inline-block; margin-top: 8px; background: {_CREAM};
     padding: 6px 12px; border-radius: 8px; color: {_INK}; }}
   footer {{ color: {_MUTED}; font-size: 12px; text-align: center; margin-top: 34px; }}
+  .tbtn {{ background: {_CARD}; border: 1px solid {_LINE}; color: {_MUTED};
+    border-radius: 999px; padding: 6px 14px; font-size: 12px; cursor: pointer;
+    flex: none; }}
+  .tbtn:hover {{ color: {_INK}; }}
+  .card, .catgroup, .stat {{ transition: transform .15s ease, background .2s ease,
+    border-color .2s ease, color .2s ease; }}
+  .card:hover, .catgroup:hover, .stat:hover {{ transform: translateY(-1px); }}
+  body, .sub, h2, .digest, footer {{ transition: background .25s ease, color .25s ease; }}
+  body.dark {{ background: #221d19; color: #ece6dc; }}
+  body.dark .sub, body.dark h2, body.dark .stat .lbl, body.dark .surface-path,
+  body.dark .state-time, body.dark .hint, body.dark footer {{ color: #a89f95; }}
+  body.dark .card, body.dark .catgroup, body.dark .stat,
+  body.dark .hookbar {{ background: #2c2620; border-color: #3a332c; }}
+  body.dark .progress {{ background: #3a332c; }}
+  body.dark .digest {{ background: #1d1814; border-color: #3a332c; color: #cfc7bb; }}
+  body.dark .tbtn {{ background: #2c2620; border-color: #3a332c; color: #a89f95; }}
+  body.dark .tbtn:hover {{ color: #ece6dc; }}
+  body.dark .pill.src {{ background: rgba(255,255,255,0.08); color: #cfc7bb; }}
 </style></head>
 <body><div class="wrap">
   <header>
     <span class="logo">{_claude_logo_svg(32)}</span>
-    <div><h1>Claude Compass</h1>
+    <div style="flex:1"><h1>Claude Compass</h1>
       <div class="sub">Every Claude session, attuned to how you like to work.</div></div>
+    <button class="tbtn" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle light/dark theme">Dark</button>
   </header>
 
   <div class="stats">
@@ -283,7 +302,15 @@ def render_dashboard_html(store: Store) -> str:
   <div class="digest">{esc(activity)}</div>
 
   <footer>Snapshot taken {esc(now)} &middot; re-run <code>compass dashboard</code> to refresh</footer>
-</div></body></html>"""
+</div>
+<script>
+function applyTheme(t){{ document.body.classList.toggle('dark', t==='dark');
+  var b=document.getElementById('themeToggle'); if(b) b.textContent = (t==='dark'?'Light':'Dark'); }}
+function toggleTheme(){{ var t=document.body.classList.contains('dark')?'light':'dark';
+  try{{ localStorage.setItem('compass-theme', t); }}catch(e){{}} applyTheme(t); }}
+(function(){{ var t='light'; try{{ t=localStorage.getItem('compass-theme')||'light'; }}catch(e){{}} applyTheme(t); }})();
+</script>
+</body></html>"""
 
 
 def write_dashboard(store: Store) -> Path:

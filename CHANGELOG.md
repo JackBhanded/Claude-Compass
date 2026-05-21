@@ -14,9 +14,13 @@ First public release. Keep every Claude session attuned to how you like to work.
   audited safe-write engine as Claude Lifejacket (atomic writes, backup +
   rollback, marker-bounded edits, hand-edit detection). Coexists with a Lifejacket
   block in the same file without collision.
-- **Inquisitive companion** — a curated bank of calibration questions; `compass
-  ask` / `answer` turns your replies into profile notes. Frequency-capped so it
-  never nags.
+- **Inquisitive companion** — a deeply-researched bank of ~125 calibration
+  questions (grounded in Anthropic's steering docs + working-style psychology),
+  each with best-first **clickable answer options** (single- or multi-select,
+  plus type-your-own). ~25 are guardrail-setters whose answers become hard rules
+  ("always confirm before deleting", "never commit secrets"). `compass ask` /
+  `answer` (by number or words) turns replies into profile notes; frequency-capped
+  so it never nags.
 - **Trust & control** — an approval gate (inferred notes never reach a session
   until you approve them), `compass pause`/`resume` as a real kill-switch
   (removes the block from your memory on the spot), and `compass forget` that
@@ -25,9 +29,16 @@ First public release. Keep every Claude session attuned to how you like to work.
   resume / status / log / dashboard / install-hook / uninstall-hook / doctor`.
 - **SessionStart hook** — refreshes your profile and (gently, at most once every
   couple of days) surfaces one calibration question.
-- **HTML dashboard** + **double-click app** — see your profile, sources, pending
-  reviews, surface status, activity, and the verbatim injected text; approve /
-  forget / pause from the window.
+- **HTML dashboard** — light "Claude brew" status page with a **light/dark
+  toggle**, a hero stat row + calibration progress bar, your profile by category
+  (with sources + pending tags), surface status, activity, and the verbatim
+  injected text. A read-only snapshot.
+- **Double-click app** — the interactive surface: answer questions via clickable
+  pills, **edit** / **approve** / **forget** any note, **pause/resume**, sync, and
+  open the dashboard — and it lives in your **system tray** (minimize-to-tray;
+  right-click for Sync / Pause / Dashboard / Quit; `compass tray` runs it quietly).
+- **Edit** — `compass edit <n> "..."` (and the app's Edit button) fix a note in
+  place; editing endorses it (becomes yours, approved) and re-syncs everywhere.
 - **120+ tests** covering the engine, store, sync, control layer, questions,
   hook, CLI, dashboard, and app logic.
 

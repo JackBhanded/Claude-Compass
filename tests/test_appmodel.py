@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from claude_compass.appmodel import (
-    answer_question, approve, approve_all, build_snapshot, do_sync, forget,
+    answer_question, approve, approve_all, build_snapshot, do_sync, edit, forget,
     set_paused,
 )
 from claude_compass.safewrite import read_managed_block
@@ -66,6 +66,23 @@ def test_forget_removes_everywhere(tmp_path):
     assert forget(s, 1, claude_home=ch) is True
     block = read_managed_block(ch / "CLAUDE.md", "profile")
     assert block is None or "terse" not in block
+
+
+def test_snapshot_carries_question_options(tmp_path):
+    s, ch = make_env(tmp_path)
+    snap = build_snapshot(s, claude_home=ch)
+    assert snap.next_question_id is not None
+    assert isinstance(snap.next_question_options, list)
+    assert len(snap.next_question_options) >= 2   # first question has quick picks
+    assert isinstance(snap.next_question_multi, bool)
+
+
+def test_edit_updates_everywhere(tmp_path):
+    s, ch = make_env(tmp_path)
+    answer_question(s, "comm_tone", "warm")
+    do_sync(s, claude_home=ch)
+    assert edit(s, 1, "Tone: concise", claude_home=ch) is True
+    assert "concise" in read_managed_block(ch / "CLAUDE.md", "profile")
 
 
 def test_pause_kill_switch(tmp_path):

@@ -71,6 +71,22 @@ def test_unknown_category_normalised_to_other(tmp_path):
     assert s.ordered_facets()[0].normalised_category() == "other"
 
 
+def test_edit_facet_endorses_it(tmp_path):
+    s = fresh(tmp_path)
+    s.add_facet("peeves", "inferred guess", source="history")  # pending
+    f = s.edit_facet(1, "my corrected note")
+    assert f is not None and f.text == "my corrected note"
+    assert f.approved is True and f.source == "you"   # editing = endorsing
+    assert [x.text for x in s.load()] == ["my corrected note"]
+
+
+def test_edit_facet_bad_input(tmp_path):
+    s = fresh(tmp_path)
+    s.add_facet("communication", "x")
+    assert s.edit_facet(99, "y") is None     # out of range
+    assert s.edit_facet(1, "   ") is None     # empty
+
+
 def test_remove_by_index(tmp_path):
     s = fresh(tmp_path)
     s.add_facet("communication", "a comms note")

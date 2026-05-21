@@ -8,7 +8,9 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from claude_compass.questions import DEFAULT_QUESTIONS, QuestionBank
-from claude_compass.store import Store
+from claude_compass.store import FACET_CATEGORIES, Store
+
+_CATEGORY_KEYS = {k for k, _ in FACET_CATEGORIES}
 
 
 def make(tmp_path):
@@ -17,12 +19,68 @@ def make(tmp_path):
     return s, QuestionBank(s)
 
 
-def test_bank_nonempty_and_unique_ids():
+def test_bank_is_large_and_unique():
     ids = [q.id for q in DEFAULT_QUESTIONS]
-    assert len(ids) >= 15
-    assert len(ids) == len(set(ids))
-    # every question maps to a real facet category-ish string (non-empty)
+    assert len(ids) >= 100              # deeply-researched bank, not a stub
+    assert len(ids) == len(set(ids))    # no duplicate ids
     assert all(q.category and q.label and q.text for q in DEFAULT_QUESTIONS)
+
+
+def test_every_question_category_is_known():
+    # so every answer renders under a real heading (not silently bucketed "other")
+    for q in DEFAULT_QUESTIONS:
+        assert q.category in _CATEGORY_KEYS, f"{q.id} -> unknown category {q.category}"
+
+
+def test_has_guardrail_questions():
+    # the guardrail-setting questions are the safety meat of the bank
+    guardrails = [q for q in DEFAULT_QUESTIONS if q.guardrail]
+    assert len(guardrails) >= 15
+
+
+def test_every_category_has_questions():
+    used = {q.category for q in DEFAULT_QUESTIONS}
+    for key, _ in FACET_CATEGORIES:
+        if key == "other":
+            continue
+        assert key in used, f"category {key} has no questions"
+
+
+# -- clickable options + number resolution -------------------------------- #
+
+def test_most_questions_have_options():
+    with_opts = [q for q in DEFAULT_QUESTIONS if q.options]
+    assert len(with_opts) >= 100   # nearly every question offers quick picks
+
+
+def test_resolve_single_number(tmp_path):
+    s, qb = make(tmp_path)
+    # comm_tone: ["Warm and friendly", "Balanced", "Terse and to-the-point"]
+    assert qb.resolve_answer("comm_tone", "3") == "Terse and to-the-point"
+
+
+def test_resolve_multi_numbers(tmp_path):
+    s, qb = make(tmp_path)
+    out = qb.resolve_answer("exp_langs", "1,3")   # exp_langs is multi
+    assert len(out.split(",")) == 2
+
+
+def test_resolve_freetext_passthrough(tmp_path):
+    s, qb = make(tmp_path)
+    assert qb.resolve_answer("comm_tone", "in my own words") == "in my own words"
+
+
+def test_resolve_then_answer_records_option(tmp_path):
+    s, qb = make(tmp_path)
+    final = qb.resolve_answer("comm_tone", "1")
+    f = qb.answer("comm_tone", final)
+    assert f.text == "Tone: Warm and friendly"
+
+
+def test_resolve_out_of_range_falls_back_to_text(tmp_path):
+    s, qb = make(tmp_path)
+    # 99 isn't a valid option index -> treat as free text
+    assert qb.resolve_answer("comm_tone", "99") == "99"
 
 
 def test_next_question_then_answer_advances(tmp_path):

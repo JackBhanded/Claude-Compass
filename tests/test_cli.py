@@ -66,6 +66,16 @@ def test_forget_deletes_everywhere(env, capsys):
     assert block is None or "terse please" not in block
 
 
+def test_edit_resyncs(env, capsys):
+    main(["init"])
+    main(["answer", "comm_tone", "1"])   # -> "Tone: Warm and friendly"
+    main(["sync"])
+    capsys.readouterr()
+    assert main(["edit", "1", "Tone: super terse"]) == 0
+    cc = env["ch"] / "CLAUDE.md"
+    assert "super terse" in read_managed_block(cc, "profile")
+
+
 def test_approve_promotes_pending(env, capsys):
     main(["init"])
     s = Store(home=env["cc"])
@@ -128,6 +138,22 @@ def test_install_and_uninstall_hook(env, capsys):
     assert "claude_compass" in sp.read_text(encoding="utf-8")
     assert main(["uninstall-hook"]) == 0
     assert "claude_compass" not in sp.read_text(encoding="utf-8")
+
+
+def test_ask_lists_options(env, capsys):
+    main(["init"])
+    capsys.readouterr()
+    main(["ask"])
+    out = capsys.readouterr().out
+    assert "1)" in out and "2)" in out   # numbered answer pills shown
+
+
+def test_answer_by_number(env, capsys):
+    main(["init"])
+    capsys.readouterr()
+    assert main(["answer", "comm_tone", "1"]) == 0
+    facets = Store(home=env["cc"]).load()
+    assert any("Warm and friendly" in f.text for f in facets)
 
 
 def test_no_command_prints_help(env, capsys):

@@ -11,7 +11,7 @@ import sys
 import webbrowser
 
 from .appmodel import (
-    answer_question, approve, approve_all, build_snapshot, do_sync, forget,
+    answer_question, approve, approve_all, build_snapshot, do_sync, edit, forget,
     set_paused,
 )
 from .dashboard import _claude_logo_svg, write_dashboard
@@ -45,6 +45,10 @@ QPushButton:hover {{ background: #fff; }}
 QPushButton#primary {{ background: {_ORANGE}; color: white; border: none; font-weight: 600; }}
 QPushButton#primary:hover {{ background: #c8633f; }}
 QPushButton#small {{ padding: 3px 10px; }}
+QPushButton#pill {{ background: #fff; border: 1px solid {_LINE}; border-radius: 999px;
+  padding: 5px 13px; }}
+QPushButton#pill:hover {{ border-color: {_ORANGE}; }}
+QPushButton#pill:checked {{ background: {_ORANGE}; color: white; border: none; }}
 QScrollArea {{ border: none; }}
 QLineEdit {{ background: #fff; border: 1px solid {_LINE}; border-radius: 8px; padding: 6px; }}
 """
@@ -59,11 +63,35 @@ def _missing_pyside_message() -> str:
     )
 
 
-def main() -> int:
+def _make_tray_icon():
+    """Build a QIcon from the Claude logo (rendered SVG), with a dot fallback."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QIcon, QPainter, QPixmap
+    pm = QPixmap(64, 64)
+    pm.fill(Qt.transparent)
+    try:
+        from PySide6.QtCore import QByteArray
+        from PySide6.QtSvg import QSvgRenderer
+        r = QSvgRenderer(QByteArray(_claude_logo_svg(64).encode("utf-8")))
+        p = QPainter(pm)
+        r.render(p)
+        p.end()
+    except Exception:
+        from PySide6.QtGui import QColor
+        p = QPainter(pm)
+        p.setBrush(QColor(_ORANGE))
+        p.setPen(Qt.NoPen)
+        p.drawEllipse(8, 8, 48, 48)
+        p.end()
+    return QIcon(pm)
+
+
+def main(start_in_tray: bool = False) -> int:
     try:
         from PySide6.QtWidgets import (
             QApplication, QCheckBox, QFrame, QHBoxLayout, QInputDialog, QLabel,
-            QLineEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget,
+            QLineEdit, QMenu, QPushButton, QScrollArea, QSystemTrayIcon,
+            QVBoxLayout, QWidget,
         )
     except ImportError:
         sys.stderr.write(_missing_pyside_message())
@@ -83,8 +111,24 @@ def main() -> int:
             self.setWindowTitle("Claude Compass")
             self.setMinimumSize(580, 680)
             self.setStyleSheet(_QSS)
+            self._tray = None      # set by main() if a system tray is available
             self._build()
             self.refresh()
+
+        def closeEvent(self, event):
+            # Closing the window hides to the tray (keeps Compass alive in the
+            # background); the tray's Quit really exits.
+            if self._tray is not None and self._tray.isVisible():
+                event.ignore()
+                self.hide()
+                try:
+                    self._tray.showMessage(
+                        "Claude Compass",
+                        "Still here in your tray - right-click the icon for options.")
+                except Exception:
+                    pass
+            else:
+                event.accept()
 
         def _build(self):
             root = QVBoxLayout(self)
@@ -111,10 +155,18 @@ def main() -> int:
             self._q_lbl = QLabel(""); self._q_lbl.setObjectName("sub")
             self._q_lbl.setWordWrap(True)
             root.addWidget(self._q_lbl)
+            # Clickable answer pills (rebuilt each refresh for the current question).
+            self._pills_holder = QWidget()
+            self._pills_layout = QHBoxLayout(self._pills_holder)
+            self._pills_layout.setContentsMargins(0, 0, 0, 0)
+            self._pills_layout.setSpacing(6)
+            self._pill_buttons = []
+            self._q_multi = False
+            root.addWidget(self._pills_holder)
             qrow = QHBoxLayout()
             self._answer_edit = QLineEdit()
-            self._answer_edit.setPlaceholderText("Answer the question above...")
-            ans_btn = QPushButton("Save answer")
+            self._answer_edit.setPlaceholderText("...or type your own answer")
+            ans_btn = QPushButton("Save")
             ans_btn.clicked.connect(self._answer)
             qrow.addWidget(self._answer_edit, 1)
             qrow.addWidget(ans_btn)
@@ -160,9 +212,26 @@ def main() -> int:
             self._clear_body()
 
             self._paused_lbl.setText("PAUSED" if snap.paused else "")
+            # Rebuild the answer pills for the current question.
+            while self._pills_layout.count():
+                it = self._pills_layout.takeAt(0)
+                w = it.widget()
+                if w:
+                    w.deleteLater()
+            self._pill_buttons = []
+            self._q_multi = snap.next_question_multi
             if snap.next_question_text:
                 self._q_id = snap.next_question_id
                 self._q_lbl.setText("Q: " + snap.next_question_text)
+                for opt in snap.next_question_options:
+                    b = QPushButton(opt); b.setObjectName("pill")
+                    if snap.next_question_multi:
+                        b.setCheckable(True)
+                    else:
+                        b.clicked.connect(lambda _=False, o=opt: self._pick(o))
+                    self._pill_buttons.append(b)
+                    self._pills_layout.addWidget(b)
+                self._pills_layout.addStretch(1)
             else:
                 self._q_id = None
                 self._q_lbl.setText("No questions right now — your profile's looking great.")
@@ -205,6 +274,9 @@ def main() -> int:
                     appr = QPushButton("Approve"); appr.setObjectName("small")
                     appr.clicked.connect(lambda _=False, i=fv.index: self._approve(i))
                     lay.addWidget(appr)
+                edb = QPushButton("Edit"); edb.setObjectName("small")
+                edb.clicked.connect(lambda _=False, i=fv.index, t=fv.text: self._edit(i, t))
+                lay.addWidget(edb)
                 rm = QPushButton("Forget"); rm.setObjectName("small")
                 rm.clicked.connect(lambda _=False, i=fv.index: self._forget(i))
                 lay.addWidget(rm)
@@ -227,8 +299,23 @@ def main() -> int:
             self._pause_btn.setText("Resume" if snap.paused else "Pause")
 
         # -- actions -- #
+        def _pick(self, option):
+            # Single-select pill: clicking answers immediately.
+            if self._q_id:
+                answer_question(store, self._q_id, option)
+                self._answer_edit.clear()
+                do_sync(store)
+                self._status.setText("  Saved and synced. ")
+                self.refresh()
+
         def _answer(self):
-            text = self._answer_edit.text().strip()
+            # Save button: commits checked multi-select pills + any typed text.
+            parts = [b.text() for b in self._pill_buttons
+                     if b.isCheckable() and b.isChecked()]
+            typed = self._answer_edit.text().strip()
+            if typed:
+                parts.append(typed)
+            text = ", ".join(parts)
             if self._q_id and text:
                 answer_question(store, self._q_id, text)
                 self._answer_edit.clear()
@@ -241,6 +328,15 @@ def main() -> int:
             do_sync(store)
             self._status.setText("  Approved and synced.")
             self.refresh()
+
+        def _edit(self, index, current):
+            from PySide6.QtWidgets import QInputDialog
+            new, ok = QInputDialog.getText(self, "Edit note",
+                                           "Update this note:", text=current)
+            if ok and new.strip():
+                edit(store, index, new.strip())   # edits + re-syncs
+                self._status.setText("  Updated and synced.")
+                self.refresh()
 
         def _forget(self, index):
             forget(store, index)   # removes + re-syncs (gone everywhere)
@@ -270,7 +366,35 @@ def main() -> int:
 
     app = QApplication.instance() or QApplication(sys.argv)
     win = CompassWindow()
-    win.show()
+
+    if QSystemTrayIcon.isSystemTrayAvailable():
+        from PySide6.QtGui import QAction
+        app.setQuitOnLastWindowClosed(False)   # closing the window hides to tray
+
+        def _show():
+            win.showNormal(); win.raise_(); win.activateWindow()
+
+        tray = QSystemTrayIcon(_make_tray_icon())
+        tray.setToolTip("Claude Compass")
+        menu = QMenu()
+        a_open = QAction("Open Compass", menu); a_open.triggered.connect(_show)
+        a_sync = QAction("Sync now", menu); a_sync.triggered.connect(win._sync)
+        a_dash = QAction("Open dashboard", menu); a_dash.triggered.connect(win._open_dashboard)
+        a_pause = QAction("Pause / Resume", menu); a_pause.triggered.connect(win._toggle_pause)
+        a_quit = QAction("Quit", menu); a_quit.triggered.connect(app.quit)
+        for a in (a_open, a_sync, a_dash, a_pause):
+            menu.addAction(a)
+        menu.addSeparator(); menu.addAction(a_quit)
+        tray.setContextMenu(menu)
+        tray.activated.connect(
+            lambda reason: _show() if reason == QSystemTrayIcon.DoubleClick else None)
+        tray.show()
+        win._tray = tray
+        if not start_in_tray:
+            win.show()
+    else:
+        win.show()
+
     return app.exec()
 
 
