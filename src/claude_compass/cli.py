@@ -91,6 +91,23 @@ def cmd_ask(args) -> int:
     return 0
 
 
+def cmd_quickstart(args) -> int:
+    s = _store()
+    s.init()
+    qb = QuestionBank(s)
+    n = qb.quickstart()
+    if n == 0:
+        _out(f"{COMPASS} Nothing to fill — you've already answered the questions "
+             "that have recommended defaults. ")
+        return 0
+    _out(f"{COMPASS} Filled {n} recommended defaults — a strong baseline in one go.")
+    _out("    They're marked '(default)'; tweak any with show / edit / forget, or "
+         "keep answering questions to make them yours.")
+    sync_all(s)
+    _out("    Synced into your Claude sessions.")
+    return 0
+
+
 def cmd_answer(args) -> int:
     s = _store()
     s.init()
@@ -386,6 +403,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command")
 
     sub.add_parser("init", help="set up the local profile store").set_defaults(func=cmd_init)
+
+    sub.add_parser("quickstart",
+                   help="fill recommended defaults for a strong baseline in one go"
+                   ).set_defaults(func=cmd_quickstart)
 
     a = sub.add_parser("ask", help="show the next calibration question")
     a.add_argument("--reset", action="store_true", help="bring skipped questions back")

@@ -456,6 +456,19 @@ DEFAULT_QUESTIONS: List[Question] = [
 
 _BY_ID = {q.id: q for q in DEFAULT_QUESTIONS}
 
+# First-options that are non-answers (placeholders) — quickstart skips these so
+# it only fills questions that have a genuinely useful recommended default.
+_PLACEHOLDERS = {
+    "none", "nothing", "nothing specific", "nothing comes to mind", "nothing else",
+    "no preference", "no need", "no special needs", "match existing code",
+    "follow the codebase", "match the codebase", "depends", "no",
+}
+
+
+def _is_placeholder(option: str) -> bool:
+    o = option.strip().lower()
+    return (not o) or o in _PLACEHOLDERS or o.startswith("(")
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -569,6 +582,34 @@ class QuestionBank:
             if picks:
                 return ", ".join(picks)
         return raw
+
+    def recommended_count(self) -> int:
+        """How many questions have a meaningful recommended default to fill."""
+        return sum(1 for q in DEFAULT_QUESTIONS
+                   if q.options and not _is_placeholder(q.options[0]))
+
+    def quickstart(self) -> int:
+        """Fill the profile with the recommended (best-first) answer for every
+        question that has a meaningful default, mark them answered, and return
+        how many were filled. Recorded with source='default' (still approved and
+        live) so the dashboard shows they're recommended defaults you can tweak.
+        Skips questions already answered, and the placeholder/open ones."""
+        st = self._load()
+        answered = set(st["answered"])
+        n = 0
+        for q in DEFAULT_QUESTIONS:
+            if not q.options or q.id in answered:
+                continue
+            opt = q.options[0]
+            if _is_placeholder(opt):
+                continue
+            self.store.add_facet(q.category, f"{q.label}: {opt}",
+                                 source="default", approved=True)
+            st["answered"].append(q.id)
+            n += 1
+        self._save(st)
+        self.store.log_event(f"quickstart filled {n} recommended defaults")
+        return n
 
     def skip(self, question_id: str) -> bool:
         if question_id not in _BY_ID:

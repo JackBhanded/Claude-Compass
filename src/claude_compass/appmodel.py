@@ -19,7 +19,7 @@ from .sync import profile_fingerprint, sync_all
 __all__ = [
     "FacetView", "SurfaceView", "Snapshot", "build_snapshot",
     "hook_is_on", "answer_question", "approve", "approve_all",
-    "forget", "edit", "set_paused", "do_sync",
+    "forget", "edit", "quickstart", "set_paused", "do_sync",
 ]
 
 _LABELS = dict(FACET_CATEGORIES)
@@ -110,6 +110,13 @@ def build_snapshot(store: Store, *, claude_home=None) -> Snapshot:
 
 def answer_question(store: Store, qid: str, text: str):
     return QuestionBank(store).answer(qid, text)
+
+
+def quickstart(store: Store, *, claude_home=None) -> int:
+    """Fill recommended defaults for a strong baseline, then sync."""
+    n = QuestionBank(store).quickstart()
+    sync_all(store, claude_home=claude_home)
+    return n
 
 
 def approve(store: Store, index: int) -> bool:

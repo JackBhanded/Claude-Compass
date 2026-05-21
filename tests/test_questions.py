@@ -83,6 +83,40 @@ def test_resolve_out_of_range_falls_back_to_text(tmp_path):
     assert qb.resolve_answer("comm_tone", "99") == "99"
 
 
+# -- quickstart (fill recommended defaults) ------------------------------- #
+
+def test_quickstart_fills_meaningful_defaults(tmp_path):
+    s, qb = make(tmp_path)
+    n = qb.quickstart()
+    assert n == qb.recommended_count() and n >= 80
+    facets = s.load()
+    # all live + tagged as defaults
+    assert all(f.approved for f in facets)
+    assert all(f.source == "default" for f in facets)
+    # the recommended best-first answer landed
+    assert any(f.text == "Tone: Warm and friendly" for f in facets)
+    # placeholders ("Nothing specific", "None", "(type...)") were skipped
+    assert not any("Nothing specific" in f.text for f in facets)
+    assert not any("(type" in f.text for f in facets)
+
+
+def test_quickstart_is_idempotent(tmp_path):
+    s, qb = make(tmp_path)
+    first = qb.quickstart()
+    assert first > 0
+    assert qb.quickstart() == 0   # everything already answered
+
+
+def test_quickstart_skips_already_answered(tmp_path):
+    s, qb = make(tmp_path)
+    qb.answer("comm_tone", "my own tone")   # I answered this one myself
+    qb.quickstart()
+    tones = [f.text for f in s.load() if f.text.startswith("Tone:")]
+    # quickstart didn't overwrite my own answer with the default
+    assert "Tone: my own tone" in tones
+    assert "Tone: Warm and friendly" not in tones
+
+
 def test_next_question_then_answer_advances(tmp_path):
     s, qb = make(tmp_path)
     first = qb.next_question()

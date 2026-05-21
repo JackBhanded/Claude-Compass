@@ -118,6 +118,7 @@ project folder you can also run `.\compass <command>` (Windows) / `./compass <co
 
 ```bash
 compass init                 # set up your local profile
+compass quickstart           # (optional) fill recommended defaults for a fast baseline
 compass ask                  # answer a calibration question or two
 compass answer comm_tone "warm but concise"
 compass sync                 # share your profile with every Claude session
@@ -130,6 +131,7 @@ compass dashboard            # see everything it knows, in your browser
 | Command | What it does |
 |---|---|
 | `compass init` | Create the local profile store (`~/.claude-compass/`) |
+| `compass quickstart` | Fill the recommended answers for a strong baseline in one go |
 | `compass ask` | Show the next calibration question |
 | `compass answer <id> "..."` | Answer it (becomes a profile note) |
 | `compass show` | Your full profile + where each note came from |

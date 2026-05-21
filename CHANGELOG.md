@@ -21,6 +21,9 @@ First public release. Keep every Claude session attuned to how you like to work.
   ("always confirm before deleting", "never commit secrets"). `compass ask` /
   `answer` (by number or words) turns replies into profile notes; frequency-capped
   so it never nags.
+- **`quickstart`** — fills the recommended (best-first) answer for every question
+  with a meaningful default, for a strong baseline in one click; tagged
+  `(default)` so you can tweak any, and skips the open/placeholder ones.
 - **Trust & control** — an approval gate (inferred notes never reach a session
   until you approve them), `compass pause`/`resume` as a real kill-switch
   (removes the block from your memory on the spot), and `compass forget` that
@@ -49,6 +52,9 @@ First public release. Keep every Claude session attuned to how you like to work.
   - **AI-generated adaptive questions** — infinite, personalized follow-ups based
     on what you've already told Compass and where the profile has gaps (so it's
     no longer limited to the built-in bank).
-- System-tray companion; stale-note re-confirmation.
+- **Go back / re-answer** in the question flow (`compass back` / a Back button)
+  — step back to redo a just-answered question, not only edit it after the fact.
+- Starter **presets** (one-click tuned profiles, e.g. "Senior / terse / autonomous").
+- Stale-note re-confirmation.
 
 [0.1.0]: https://github.com/JackBhanded/claude-compass/releases/tag/v0.1.0

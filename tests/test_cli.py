@@ -140,6 +140,16 @@ def test_install_and_uninstall_hook(env, capsys):
     assert "claude_compass" not in sp.read_text(encoding="utf-8")
 
 
+def test_quickstart_fills_and_syncs(env, capsys):
+    main(["init"])
+    capsys.readouterr()
+    assert main(["quickstart"]) == 0
+    out = capsys.readouterr().out
+    assert "Filled" in out
+    block = read_managed_block(env["ch"] / "CLAUDE.md", "profile")
+    assert "Warm and friendly" in block   # a recommended default went live
+
+
 def test_ask_lists_options(env, capsys):
     main(["init"])
     capsys.readouterr()

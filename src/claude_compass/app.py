@@ -12,7 +12,7 @@ import webbrowser
 
 from .appmodel import (
     answer_question, approve, approve_all, build_snapshot, do_sync, edit, forget,
-    set_paused,
+    quickstart, set_paused,
 )
 from .dashboard import _claude_logo_svg, write_dashboard
 from .store import Store, default_home
@@ -170,6 +170,9 @@ def main(start_in_tray: bool = False) -> int:
             ans_btn.clicked.connect(self._answer)
             qrow.addWidget(self._answer_edit, 1)
             qrow.addWidget(ans_btn)
+            qs_btn = QPushButton("Use recommended answers")
+            qs_btn.clicked.connect(self._quickstart)
+            qrow.addWidget(qs_btn)
             root.addLayout(qrow)
 
             self._body = QVBoxLayout(); self._body.setSpacing(8)
@@ -299,6 +302,11 @@ def main(start_in_tray: bool = False) -> int:
             self._pause_btn.setText("Resume" if snap.paused else "Pause")
 
         # -- actions -- #
+        def _quickstart(self):
+            n = quickstart(store)
+            self._status.setText(f"  Filled {n} recommended defaults — tweak any below.")
+            self.refresh()
+
         def _pick(self, option):
             # Single-select pill: clicking answers immediately.
             if self._q_id:
