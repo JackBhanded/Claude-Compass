@@ -154,6 +154,40 @@ compass dashboard            # see everything it knows, in your browser
   profile notes (opt-in, you review before anything syncs); a system-tray
   companion; richer re-confirmation of stale notes.
 
+## How it differs from the alternatives
+
+Big AI products already have "memory" — so why Compass? Because the mainstream
+options *infer* things about you automatically and store them somewhere you can't
+fully see. Compass is built on the opposite principle. The fair comparison:
+
+- **[ChatGPT Memory](https://openai.com/index/memory-and-new-controls-for-chatgpt)**
+  is the closest foil. It auto-saves facts and, since 2025, infers more from your
+  history. It's wonderfully low-effort — but the common complaints (it "saves
+  random things," the inferred layer is opaque, editing one thing doesn't reset
+  the rest) are exactly what Compass sets out to avoid: **nothing inferred reaches
+  your sessions until you approve it**, everything lives in a file you can read,
+  and *pause* / *forget* take effect immediately. It's also ChatGPT-only; Compass
+  feeds Claude Code **and** Cowork.
+- **[Claude Memory](https://support.claude.com/en/articles/11817273)** —
+  Anthropic's own auto-synthesised summary — is great and built-in, but it's
+  claude.ai-only and the synthesis is opaque. Compass is a profile *you* curate,
+  in a file you own, that also travels into Claude Code via `CLAUDE.md`. (If you'd
+  rather not manage anything, Claude Memory is the zero-effort choice — that's a
+  fair trade.)
+- **[mem0 / OpenMemory MCP](https://github.com/mem0ai/mem0)** is the power-user
+  route: a universal memory the model queries across tools. It's auto-capture and
+  pull-based; Compass is approval-gated and **guaranteed-injected** into the file
+  every session already reads.
+- **Hand-written CLAUDE.md "voice/style" notes** are the DIY version of this, and
+  plenty of people do exactly that. Compass just automates and safeguards it: a
+  managed block, a hook that refreshes it, and writes that can't corrupt the file
+  or stomp your own notes.
+
+If you want effortless, automatic memory and don't mind not seeing the wiring,
+the built-in options win. Compass is for people who want their working-style
+profile **curated, visible, approval-gated, and instantly switch-off-able** —
+feeding every Claude surface, not just one app.
+
 ## Part of the fleet
 
 - [Claude Meter](https://github.com/JackBhanded/claude-meter) — live usage on your taskbar.
