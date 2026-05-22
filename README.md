@@ -94,9 +94,10 @@ most transparent and controllable tool you'll install:
 - **No ghost memories.** `compass forget` removes a note **and re-syncs**, so it's
   gone from your sessions too — not just the store.
 
-All built on the same audited safe-write engine as Lifejacket (atomic writes,
-backup + rollback, marker-bounded edits, never clobbers your hand-edits). 120+
-tests.
+It's built on the same carefully-tested safety engine as Lifejacket: it can't
+corrupt your memory file, it backs up before every change, it only edits its own
+labelled section, and it never overwrites notes you've hand-tweaked. 140+ tests
+back that up.
 
 ## Install
 
@@ -159,6 +160,7 @@ compass dashboard            # see everything it knows, in your browser
 - [Claude Lifeboat](https://github.com/JackBhanded/claude-lifeboat) — backup & restore for your Claude data.
 - [Claude Lifejacket](https://github.com/JackBhanded/claude-lifejacket) — keep every session aware of your projects.
 - **Claude Compass** — keep every session attuned to you. *(you are here)*
+- [Claude Parachute](https://github.com/JackBhanded/claude-parachute) — a safety net for the Bash changes Claude Code's `/rewind` can't see.
 
 ## About the author
 

@@ -64,5 +64,6 @@ stale-note re-confirmation.
 - [Claude Lifeboat](https://github.com/JackBhanded/claude-lifeboat) — backup & restore for Claude data.
 - [Claude Lifejacket](https://github.com/JackBhanded/claude-lifejacket) — keep every session aware of your projects.
 - **Claude Compass** — you are here. (Lifejacket syncs your projects; Compass syncs you. Independent, but best together.)
+- [Claude Parachute](https://github.com/JackBhanded/claude-parachute) — the net for the bash changes /rewind can't see.
 
 _Maintainer's working-style/personal context is kept in private notes, not in this public file._
