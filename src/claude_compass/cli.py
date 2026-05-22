@@ -29,8 +29,10 @@ from typing import List, Optional
 from . import __version__
 from .hookconfig import (
     hook_command,
+    install_live_hook,
     install_session_start_hook,
     settings_path,
+    uninstall_live_hook,
     uninstall_session_start_hook,
 )
 from .questions import QuestionBank
@@ -374,6 +376,36 @@ def cmd_tray(args) -> int:
     return app_main(start_in_tray=True)
 
 
+def cmd_hook_prompt(args) -> int:
+    """Run by Claude Code on UserPromptSubmit (live mode). Prints ONLY the hook
+    JSON: the current profile as additionalContext, so edits land on the very
+    next message. Fast — no sync; empty when paused."""
+    s = _store()
+    try:
+        s.init()
+        context = "" if s.is_paused() else s.render_profile()
+    except Exception:
+        context = ""
+    print(json.dumps({"hookSpecificOutput": {
+        "hookEventName": "UserPromptSubmit", "additionalContext": context}}))
+    return 0
+
+
+def cmd_live(args) -> int:
+    ch = claude_code_home()
+    if args.state == "off":
+        res = uninstall_live_hook(ch)
+        _out(f"{COMPASS} {res.message}")
+        return 0 if res.ok else 1
+    res = install_live_hook(ch)
+    _out(f"{COMPASS} {res.message}")
+    if res.ok:
+        _out("    Live mode is ON — in new Claude Code sessions your profile "
+             "refreshes before every message, so edits take effect on your next "
+             "prompt (not just new sessions). Turn off with: compass live off")
+    return 0 if res.ok else 1
+
+
 def cmd_doctor(args) -> int:
     s = _store()
     _out(f"{COMPASS} Compass check-up")
@@ -458,6 +490,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("tray", help="run Compass quietly in your system tray").set_defaults(func=cmd_tray)
     sub.add_parser("install-hook", help="make sync automatic").set_defaults(func=cmd_install_hook)
+
+    lv = sub.add_parser("live", help="turn live per-message profile updates on/off (Claude Code)")
+    lv.add_argument("state", nargs="?", choices=["on", "off"], default="on")
+    lv.set_defaults(func=cmd_live)
+    sub.add_parser("hook-prompt", help=argparse.SUPPRESS).set_defaults(func=cmd_hook_prompt)
     sub.add_parser("uninstall-hook", help="remove the automatic hook").set_defaults(func=cmd_uninstall_hook)
     sub.add_parser("hook", help=argparse.SUPPRESS).set_defaults(func=cmd_hook)
     sub.add_parser("doctor", help="quick health check").set_defaults(func=cmd_doctor)

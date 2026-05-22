@@ -32,6 +32,9 @@ First public release. Keep every Claude session attuned to how you like to work.
   resume / status / log / dashboard / install-hook / uninstall-hook / doctor`.
 - **SessionStart hook** — refreshes your profile and (gently, at most once every
   couple of days) surfaces one calibration question.
+- **Live mode** (`compass live on`) — an optional Claude Code UserPromptSubmit
+  hook that re-injects your profile before *every* message, so edits take effect
+  on your very next prompt, not only in new sessions.
 - **HTML dashboard** — light "Claude brew" status page with a **light/dark
   toggle**, a hero stat row + calibration progress bar, your profile by category
   (with sources + pending tags), surface status, activity, and the verbatim

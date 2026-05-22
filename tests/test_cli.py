@@ -131,6 +131,36 @@ def test_hook_paused_emits_empty(env, capsys):
     assert "warm" not in payload["hookSpecificOutput"]["additionalContext"]
 
 
+def test_live_on_off(env, capsys):
+    main(["init"])
+    capsys.readouterr()
+    assert main(["live", "on"]) == 0
+    sp = env["ch"] / "settings.json"
+    assert "UserPromptSubmit" in json.loads(sp.read_text(encoding="utf-8"))["hooks"]
+    assert main(["live", "off"]) == 0
+    assert "UserPromptSubmit" not in json.loads(sp.read_text(encoding="utf-8")).get("hooks", {})
+
+
+def test_hook_prompt_emits_profile(env, capsys):
+    main(["init"])
+    main(["answer", "comm_tone", "warm but concise"])
+    capsys.readouterr()
+    assert main(["hook-prompt"]) == 0
+    payload = json.loads(capsys.readouterr().out.strip())
+    assert payload["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
+    assert "warm but concise" in payload["hookSpecificOutput"]["additionalContext"]
+
+
+def test_hook_prompt_empty_when_paused(env, capsys):
+    main(["init"])
+    main(["answer", "comm_tone", "warm"])
+    main(["pause"])
+    capsys.readouterr()
+    assert main(["hook-prompt"]) == 0
+    payload = json.loads(capsys.readouterr().out.strip())
+    assert "warm" not in payload["hookSpecificOutput"]["additionalContext"]
+
+
 def test_install_and_uninstall_hook(env, capsys):
     main(["init"])
     assert main(["install-hook"]) == 0

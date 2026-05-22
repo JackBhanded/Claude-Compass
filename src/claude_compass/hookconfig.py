@@ -1,13 +1,16 @@
-"""hookconfig.py — install/remove the Claude Code SessionStart hook, safely.
+"""hookconfig.py — install/remove Claude Code hooks for Compass, safely.
 
-The hook makes Compass automatic: each session start runs ``compass hook``, which
-re-syncs your profile and prints it as ``additionalContext`` (and, now and then,
-gently surfaces one calibration question).
+Two hooks, both optional:
+  * **SessionStart** runs ``compass hook`` once per session — re-syncs your
+    profile and prints it as ``additionalContext`` (plus the occasional question).
+  * **UserPromptSubmit** ("live mode") runs ``compass hook-prompt`` before *every*
+    message, re-injecting your current profile — so edits take effect on your very
+    next prompt, not only in new sessions.
 
 ``~/.claude/settings.json`` is strict JSON the user may have customised, so we
 treat it as carefully as a memory file: refuse to write if it won't parse, back
-it up first, write atomically, and detect our own hook so install is idempotent
-and uninstall removes only ours. (Vendored from Lifejacket's hookconfig.)
+it up first, write atomically, and detect our own hook (by event + tag) so
+install is idempotent and uninstall removes only ours.
 """
 
 from __future__ import annotations
@@ -23,9 +26,12 @@ from .safewrite import write_text_atomic
 __all__ = [
     "HookResult",
     "hook_command",
+    "live_hook_command",
     "settings_path",
     "install_session_start_hook",
     "uninstall_session_start_hook",
+    "install_live_hook",
+    "uninstall_live_hook",
     "HOOK_TAG",
 ]
 
@@ -47,6 +53,11 @@ class HookResult:
 def hook_command(python: Optional[str] = None) -> str:
     py = python or sys.executable
     return f'"{py}" -m claude_compass hook'
+
+
+def live_hook_command(python: Optional[str] = None) -> str:
+    py = python or sys.executable
+    return f'"{py}" -m claude_compass hook-prompt'
 
 
 def settings_path(claude_home: Path) -> Path:
@@ -75,11 +86,13 @@ def _dump(data) -> str:
     return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
 
-def install_session_start_hook(
-    claude_home: Path, command: Optional[str] = None
-) -> HookResult:
+# --------------------------------------------------------------------------- #
+# Generic install/uninstall over a hook event (SessionStart / UserPromptSubmit)
+# --------------------------------------------------------------------------- #
+
+def _install_event_hook(claude_home: Path, event: str, command: str,
+                        label: str) -> HookResult:
     path = settings_path(claude_home)
-    command = command or hook_command()
     data, err = _load_settings(path)
     if err:
         return HookResult(status="refused", path=path, message=err)
@@ -89,35 +102,34 @@ def install_session_start_hook(
         return HookResult(status="refused", path=path,
                           message="The 'hooks' section of your settings.json "
                                   "isn't an object, so I left it alone.")
-    session_start = hooks.setdefault("SessionStart", [])
-    if not isinstance(session_start, list):
+    arr = hooks.setdefault(event, [])
+    if not isinstance(arr, list):
         return HookResult(status="refused", path=path,
-                          message="Your settings.json has a 'SessionStart' that "
-                                  "isn't a list, so I left it alone to be safe.")
+                          message=f"Your settings.json has a '{event}' that isn't "
+                                  "a list, so I left it alone to be safe.")
 
-    for group in session_start:
+    for group in arr:
         if not isinstance(group, dict):
             continue
         for h in group.get("hooks", []):
             if isinstance(h, dict) and HOOK_TAG in str(h.get("command", "")):
                 if h.get("command") == command:
                     return HookResult(status="unchanged", path=path,
-                                      message="The SessionStart hook is already "
-                                              "in place — you're all set.")
+                                      message=f"The {label} is already in place — "
+                                              "you're all set.")
                 h["command"] = command
                 bak = write_text_atomic(path, _dump(data), backup=True)
                 return HookResult(status="updated", path=path, backup_path=bak,
-                                  message="Refreshed the SessionStart hook command "
-                                          "(kept a backup of your old settings).")
+                                  message=f"Refreshed the {label} command (kept a "
+                                          "backup of your old settings).")
 
-    session_start.append({"hooks": [{"type": "command", "command": command}]})
+    arr.append({"hooks": [{"type": "command", "command": command}]})
     bak = write_text_atomic(path, _dump(data), backup=path.exists())
     return HookResult(status="installed", path=path, backup_path=bak,
-                      message="Installed the SessionStart hook — Compass will now "
-                              "keep your profile current automatically. ")
+                      message=f"Installed the {label}. ")
 
 
-def uninstall_session_start_hook(claude_home: Path) -> HookResult:
+def _uninstall_event_hook(claude_home: Path, event: str, label: str) -> HookResult:
     path = settings_path(claude_home)
     data, err = _load_settings(path)
     if err:
@@ -127,14 +139,14 @@ def uninstall_session_start_hook(claude_home: Path) -> HookResult:
                           message="No settings.json yet — nothing to remove.")
 
     hooks = data.get("hooks")
-    session_start = hooks.get("SessionStart") if isinstance(hooks, dict) else None
-    if not isinstance(session_start, list):
+    arr = hooks.get(event) if isinstance(hooks, dict) else None
+    if not isinstance(arr, list):
         return HookResult(status="absent", path=path,
-                          message="No SessionStart hooks here — nothing to remove.")
+                          message=f"No {event} hooks here — nothing to remove.")
 
     removed = False
     new_groups = []
-    for group in session_start:
+    for group in arr:
         if not isinstance(group, dict):
             new_groups.append(group)
             continue
@@ -148,16 +160,45 @@ def uninstall_session_start_hook(claude_home: Path) -> HookResult:
             new_groups.append(group)
     if not removed:
         return HookResult(status="absent", path=path,
-                          message="No Compass hook found — nothing to remove.")
+                          message=f"No Compass {label} found — nothing to remove.")
 
     if new_groups:
-        hooks["SessionStart"] = new_groups
+        hooks[event] = new_groups
     else:
-        hooks.pop("SessionStart", None)
+        hooks.pop(event, None)
     if isinstance(hooks, dict) and not hooks:
         data.pop("hooks", None)
 
     bak = write_text_atomic(path, _dump(data), backup=True)
     return HookResult(status="removed", path=path, backup_path=bak,
-                      message="Removed the Compass SessionStart hook. Your other "
-                              "settings are untouched.")
+                      message=f"Removed the Compass {label}. Your other settings "
+                              "are untouched.")
+
+
+# --------------------------------------------------------------------------- #
+# Public wrappers
+# --------------------------------------------------------------------------- #
+
+def install_session_start_hook(claude_home: Path,
+                               command: Optional[str] = None) -> HookResult:
+    return _install_event_hook(claude_home, "SessionStart",
+                               command or hook_command(),
+                               "SessionStart hook")
+
+
+def uninstall_session_start_hook(claude_home: Path) -> HookResult:
+    return _uninstall_event_hook(claude_home, "SessionStart", "SessionStart hook")
+
+
+def install_live_hook(claude_home: Path,
+                      command: Optional[str] = None) -> HookResult:
+    """UserPromptSubmit hook — re-injects your profile before every message, so
+    edits take effect on your next prompt within the same session."""
+    return _install_event_hook(claude_home, "UserPromptSubmit",
+                               command or live_hook_command(),
+                               "live (per-message) hook")
+
+
+def uninstall_live_hook(claude_home: Path) -> HookResult:
+    return _uninstall_event_hook(claude_home, "UserPromptSubmit",
+                                 "live (per-message) hook")

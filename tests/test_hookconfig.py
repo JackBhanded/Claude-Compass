@@ -10,8 +10,11 @@ import pytest
 from claude_compass.hookconfig import (
     HOOK_TAG,
     hook_command,
+    install_live_hook,
     install_session_start_hook,
+    live_hook_command,
     settings_path,
+    uninstall_live_hook,
     uninstall_session_start_hook,
 )
 
@@ -77,3 +80,34 @@ def test_uninstall_absent_graceful(tmp_path):
 def test_hook_command_quotes_python():
     cmd = hook_command(python="/path with space/python")
     assert cmd.startswith('"/path with space/python"') and "claude_compass hook" in cmd
+
+
+# -- live (UserPromptSubmit) hook ----------------------------------------- #
+
+_LIVE = '"python" -m claude_compass hook-prompt'
+
+
+def test_live_hook_coexists_with_session_start(tmp_path):
+    install_session_start_hook(tmp_path, command=CMD)
+    install_live_hook(tmp_path, command=_LIVE)
+    data = read(settings_path(tmp_path))
+    assert "SessionStart" in data["hooks"]
+    assert "UserPromptSubmit" in data["hooks"]
+
+
+def test_uninstall_live_leaves_session_start(tmp_path):
+    install_session_start_hook(tmp_path, command=CMD)
+    install_live_hook(tmp_path, command=_LIVE)
+    assert uninstall_live_hook(tmp_path).status == "removed"
+    data = read(settings_path(tmp_path))
+    assert "UserPromptSubmit" not in data["hooks"]
+    assert "SessionStart" in data["hooks"]      # the other hook is untouched
+
+
+def test_live_idempotent(tmp_path):
+    install_live_hook(tmp_path, command=_LIVE)
+    assert install_live_hook(tmp_path, command=_LIVE).status == "unchanged"
+
+
+def test_live_hook_command():
+    assert "hook-prompt" in live_hook_command(python="py")

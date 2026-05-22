@@ -144,6 +144,7 @@ compass dashboard            # see everything it knows, in your browser
 | `compass dashboard` | Open the visual status page |
 | `compass status` / `log` | Where things stand / recent activity |
 | `compass install-hook` / `uninstall-hook` | Turn automatic syncing on/off |
+| `compass live on` / `off` | Live mode: re-inject your profile before every message (Claude Code), so edits land on your next prompt |
 | `compass doctor` | Quick health check |
 
 ## Roadmap
