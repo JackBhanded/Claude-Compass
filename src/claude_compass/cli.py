@@ -357,8 +357,9 @@ def cmd_dashboard(args) -> int:
     s.init()
     out = write_dashboard(s)
 
-    # --static (or a fallback if the server can't bind): just the HTML file.
-    if getattr(args, "static", False):
+    # --static OR --no-open: just write the HTML file and return (never blocks).
+    # The live-answer server only runs in the default interactive case below.
+    if getattr(args, "static", False) or args.no_open:
         _out(f"{COMPASS} Your dashboard is ready: {out}")
         if not args.no_open:
             try:
