@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "claude-compass"
-version = "0.1.0"
+version = "0.2.0"
 description = "Keep every Claude session attuned to you — safely syncs a curated working-style profile into Claude Code and Cowork memory."
 readme = "README.md"
 requires-python = ">=3.9"

@@ -3,6 +3,48 @@
 All notable changes to Claude Compass are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] — 2026-05-25
+
+A brand-new look, in-page answering, groundwork for a self-correcting Compass, and
+a startup convenience. Nothing your Claude sessions read changes from the learning
+work — the new learning is strictly read-only evidence-gathering you can inspect.
+
+### Changed
+- **A gorgeous new look (elevated Claude-brew + dark mode).** The dashboard is now
+  frosted glassmorphism over a soft drifting aurora, with gradient accents, a
+  count-up stat row, a calibration progress bar, a sleek dark mode (remembered
+  across reloads), and a strong type hierarchy. The double-click app window is
+  restyled to match — stat row, progress bar, a bold accent question card, soft
+  card shadows, mode pills, and the same light/dark toggle.
+
+### Added
+- **Answer right in the dashboard — no command.** `compass dashboard` now starts a
+  tiny local helper, so you can pick a suggested answer or type your own straight
+  in the page; it saves and re-syncs every Claude surface instantly. The app window
+  answers inline too. (`compass dashboard --static` keeps the old write-a-file
+  behaviour.)
+- **Declination, Phase 1 (opt-in, read-only).** Compass can now learn from your
+  own local Claude history without changing anything yet. A heuristic detector
+  scans the *new* user turns in a transcript, maps telling phrases (e.g. "just the
+  code", "drop the emoji", repeated "no/stop") to the matching facet, and records
+  them as **evidence** in a per-facet ledger. Run it with `compass scan`
+  (`--dry-run` shows what it would record without writing). Each facet has a
+  **mode** — `auto` / `suggest` / `fixed` — and `fixed` facets are never touched.
+  This is the safe first slice of the "stay calibrated over time" design in
+  `DECLINATION.md`; the actual self-correction (flips and proposals) lands in a
+  later phase.
+- **Run at startup.** A "Run at startup" toggle in the tray menu pins Compass to
+  your per-user Windows startup (no admin needed), so it keeps your sessions
+  attuned from the moment you log in. Greyed out when running from source.
+
+### Notes
+- Privacy: the scan reads your local transcripts on your machine; the heuristic
+  stage sends nothing anywhere. (Future phases that ask your own Claude to
+  adjudicate stay within the same trust boundary as using Claude Code at all, are
+  opt-in, and respect the `pause` kill-switch.)
+
+[0.2.0]: https://github.com/JackBhanded/claude-compass/compare/v0.1.0...v0.2.0
+
 ## [0.1.0] — 2026-05-21
 
 First public release. Keep every Claude session attuned to how you like to work.

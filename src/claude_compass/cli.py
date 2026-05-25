@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from typing import List, Optional
 
@@ -36,7 +37,7 @@ from .hookconfig import (
     uninstall_session_start_hook,
 )
 from .questions import QuestionBank
-from .store import FACET_CATEGORIES, Store, StoreError, default_home
+from .store import FACET_CATEGORIES, Obs, Store, StoreError, default_home
 from .surfaces import claude_code_home, discover_surfaces, load_extra_surfaces
 from .sync import preview_all, sync_all
 
@@ -355,15 +356,120 @@ def cmd_dashboard(args) -> int:
     s = _store()
     s.init()
     out = write_dashboard(s)
-    _out(f"{COMPASS} Your dashboard is ready: {out}")
-    if not args.no_open:
-        try:
-            import webbrowser
-            webbrowser.open(out.as_uri())
-            _out("    Opening it in your browser now. ")
-        except Exception:
-            _out("    Open that file in any browser to see it.")
+
+    # --static (or a fallback if the server can't bind): just the HTML file.
+    if getattr(args, "static", False):
+        _out(f"{COMPASS} Your dashboard is ready: {out}")
+        if not args.no_open:
+            try:
+                import webbrowser
+                webbrowser.open(out.as_uri())
+                _out("    Opening it in your browser now. ")
+            except Exception:
+                _out("    Open that file in any browser to see it.")
+        return 0
+
+    # Live mode: a tiny local server so you can answer right in the page and it
+    # saves + re-syncs with no command typed. Falls back to the static file if it
+    # can't start (e.g. no free port).
+    try:
+        return _serve_dashboard(s, open_browser=not args.no_open)
+    except Exception:
+        _out(f"{COMPASS} Your dashboard is ready: {out}")
+        _out("    (Couldn't start the live-answer server — opening the file instead.)")
+        if not args.no_open:
+            try:
+                import webbrowser
+                webbrowser.open(out.as_uri())
+            except Exception:
+                pass
+        return 0
+
+
+def _serve_dashboard(store, open_browser: bool = True) -> int:
+    """Serve the dashboard on 127.0.0.1 so answers save straight from the page."""
+    import json as _json
+    import threading
+    import webbrowser
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    from .appmodel import do_sync
+    from .dashboard import render_dashboard_html
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *a):  # keep the terminal quiet
+            return
+
+        def _send(self, code, body, ctype="text/html; charset=utf-8"):
+            data = body.encode("utf-8") if isinstance(body, str) else body
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            try:
+                self.wfile.write(data)
+            except Exception:
+                pass
+
+        def do_GET(self):
+            if self.path in ("/", "/index.html", "/dashboard.html"):
+                self._send(200, render_dashboard_html(store))
+            else:
+                self._send(404, "not found", "text/plain; charset=utf-8")
+
+        def _read_json(self):
+            try:
+                n = int(self.headers.get("Content-Length", 0))
+                return _json.loads(self.rfile.read(n) or b"{}")
+            except Exception:
+                return {}
+
+        def do_POST(self):
+            payload = self._read_json()
+            qb = QuestionBank(store)
+            try:
+                if self.path == "/answer":
+                    qid = str(payload.get("id", "")).strip()
+                    text = str(payload.get("text", "")).strip()
+                    final = qb.resolve_answer(qid, text) if qid else None
+                    facet = qb.answer(qid, final) if final else None
+                    if not facet:
+                        return self._send(400, '{"ok":false}', "application/json")
+                    try:
+                        do_sync(store)   # share it with every session, no command
+                    except Exception:
+                        pass
+                    return self._send(200, '{"ok":true}', "application/json")
+                if self.path == "/skip":
+                    qb.skip(str(payload.get("id", "")).strip())
+                    return self._send(200, '{"ok":true}', "application/json")
+            except Exception:
+                return self._send(400, '{"ok":false}', "application/json")
+            self._send(404, '{"ok":false}', "application/json")
+
+    httpd = HTTPServer(("127.0.0.1", 0), Handler)
+    port = httpd.server_address[1]
+    url = f"http://127.0.0.1:{port}/"
+    _out(f"{COMPASS} Compass dashboard is live at {url}")
+    _out("    Answer questions right in the page — it saves and re-syncs instantly.")
+    _out("    Press Ctrl+C here when you're done.")
+    if open_browser:
+        threading.Timer(0.4, lambda: _safe_open(webbrowser, url)).start()
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        _out(f"\n{COMPASS} Dashboard closed. Your profile is saved. ")
+    finally:
+        httpd.server_close()
     return 0
+
+
+def _safe_open(webbrowser, url):
+    try:
+        webbrowser.open(url)
+    except Exception:
+        pass
 
 
 def cmd_tray(args) -> int:
@@ -418,6 +524,69 @@ def cmd_doctor(args) -> int:
     _out(f"  Hook cmd:    {hook_command()}")
     _out("")
     _out("  If all of the above looks right, you're pointed true. ")
+    return 0
+
+
+def cmd_scan(args) -> int:
+    """Declination Phase 1: read your latest transcript, map telling phrases to
+    the facets they bear on, and record them as evidence. Read-only on what your
+    sessions see — it never flips a facet or changes your CLAUDE.md (that's a
+    later phase). ``--dry-run`` shows the findings without recording anything."""
+    from datetime import datetime, timezone
+    from pathlib import Path
+    from .detector import scan_turns
+    from .transcripts import find_latest_transcript, read_user_turns
+
+    s = _store()
+    s.init()
+    path = Path(args.file) if args.file else find_latest_transcript(cwd=os.getcwd())
+    if not path or not path.exists():
+        _out(f"{COMPASS} No transcript found to scan. Point me at one with: "
+             "python -m claude_compass scan --file <path-to.jsonl>")
+        return 1
+
+    since = 0 if args.all else s.get_scan_offset(str(path))
+    turns, new_offset = read_user_turns(path, since)
+    hits = scan_turns(turns)
+
+    by_qid: dict = {}
+    for f in s.load():
+        by_qid.setdefault(f.question_id, []).append(f)
+
+    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    session = path.stem
+    pairs, matched, skipped_fixed = [], [], 0
+    for h in hits:
+        targets = by_qid.get(h.question_id, [])  # Phase 1 never invents a facet
+        for f in targets:
+            if f.mode == "fixed":
+                skipped_fixed += 1   # a switch you own — declination keeps hands off
+                continue
+            pairs.append((f.id, Obs(ts=ts, session=session, signal=h.signal,
+                                    strength=h.strength, suggests=h.suggests,
+                                    source="heuristic")))
+            matched.append((f, h))
+
+    _out(f"{COMPASS} Scanned {len(turns)} new user turn(s) in {path.name}")
+    if not matched and not skipped_fixed:
+        _out("    Nothing stood out - no observations to record.")
+    for f, h in matched:
+        arrow = f" -> {h.suggests}" if h.suggests else ""
+        _out(f"    {h.signal:<11} \"{f.text}\"  (matched: \"{h.matched}\"{arrow})  [{f.mode}]")
+    if skipped_fixed:
+        _out(f"    ({skipped_fixed} hit(s) ignored — they target fixed switches you own.)")
+
+    if args.dry_run:
+        _out("")
+        _out("    Dry run - nothing recorded, scan position unchanged.")
+        return 0
+
+    n = s.record_observations(pairs)
+    s.set_scan_offset(str(path), new_offset)
+    s.log_event(f"scan: recorded {n} observation(s) from {path.name}")
+    _out("")
+    _out(f"    Recorded {n} observation(s) to the evidence ledger. "
+         "(Nothing your sessions read changed - flips arrive in Phase 2.)")
     return 0
 
 
@@ -486,6 +655,8 @@ def build_parser() -> argparse.ArgumentParser:
     d = sub.add_parser("dashboard", help="open the visual status dashboard")
     d.add_argument("--no-open", action="store_true",
                    help="write the HTML file but don't open a browser")
+    d.add_argument("--static", action="store_true",
+                   help="just write the HTML file (don't start the live-answer server)")
     d.set_defaults(func=cmd_dashboard)
 
     sub.add_parser("tray", help="run Compass quietly in your system tray").set_defaults(func=cmd_tray)
@@ -498,6 +669,16 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("uninstall-hook", help="remove the automatic hook").set_defaults(func=cmd_uninstall_hook)
     sub.add_parser("hook", help=argparse.SUPPRESS).set_defaults(func=cmd_hook)
     sub.add_parser("doctor", help="quick health check").set_defaults(func=cmd_doctor)
+
+    sc = sub.add_parser("scan",
+                        help="learn from your latest transcript (records evidence; "
+                             "changes nothing your sessions see)")
+    sc.add_argument("--dry-run", action="store_true",
+                    help="show what would be recorded, write nothing")
+    sc.add_argument("--file", help="scan a specific transcript .jsonl (default: your latest)")
+    sc.add_argument("--all", action="store_true",
+                    help="rescan from the start, ignoring the saved position")
+    sc.set_defaults(func=cmd_scan)
 
     return p
 

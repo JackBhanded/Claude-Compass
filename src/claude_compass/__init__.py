@@ -11,6 +11,6 @@ the occasional thoughtful question over time.
 Built on Lifejacket's audited safe-write engine. Sync-in only for v0.1.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Jack Bhanded"
 __license__ = "MIT"

@@ -22,6 +22,9 @@ _setup-repo.ps1
 LAUNCH.md
 NOTES.md
 RESEARCH.md
+_try_app.py
+Try the new dashboard.bat
+Try the new app window.bat
 
 # Anything generated into a local store accidentally placed here
 dashboard.html
